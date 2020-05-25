@@ -3,7 +3,8 @@ module github.com/smulube/scavenge
 go 1.14
 
 require (
-	github.com/alecthomas/kong v0.2.9 // indirect
+	github.com/alecthomas/kong v0.2.9
+	github.com/dustin/go-humanize v1.0.0
 	github.com/go-telegram-bot-api/telegram-bot-api v4.6.4+incompatible
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/lib/pq v1.0.0
@@ -13,4 +14,5 @@ require (
 	go.etcd.io/bbolt v1.3.4
 	go.uber.org/zap v1.15.0
 	gopkg.in/guregu/null.v4 v4.0.0
+	gopkg.in/yaml.v2 v2.2.2
 )

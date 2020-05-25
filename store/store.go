@@ -22,23 +22,6 @@ CREATE TABLE IF NOT EXISTS users (
 	admin BOOLEAN DEFAULT FALSE,
 	PRIMARY KEY(id)
 );
-
-CREATE TABLE IF NOT EXISTS items (
-	id SERIAL PRIMARY KEY,
-	name TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS games (
-	id SERIAL PRIMARY KEY,
-	start_time TIMESTAMP WITH TIME ZONE NOT NULL,
-	duration INTERVAL NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS items_games (
-	item_id INTEGER NOT NULL,
-	game_id INTEGER NOT NULL,
-	PRIMARY KEY (item_id, game_id)
-);
 `
 
 // DB is a wrapper around our Postgres database

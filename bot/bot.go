@@ -2,22 +2,49 @@ package bot
 
 import (
 	"fmt"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/dustin/go-humanize"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/smulube/scavenge/store"
 	"go.uber.org/zap"
 	"gopkg.in/guregu/null.v4"
+	"gopkg.in/yaml.v2"
 )
 
+type Game struct {
+	Title    string        `yaml:"title"`
+	Start    time.Time     `yaml:"start"`
+	Duration time.Duration `yaml:"duration"`
+	Items    []string      `yaml:"items"`
+	Bonuses  []string      `yaml:"bonuses"`
+}
+
 // Run starts our bot running with the appropriate configuration
-func Run(logger *zap.Logger, token string, start time.Time, duration time.Duration, verbose bool, connStr string, admins []string) error {
+func Run(logger *zap.Logger, token string, gameFile, imageFolder string, verbose bool, connStr string, admins []string) error {
+
+	data, err := ioutil.ReadFile(gameFile)
+	if err != nil {
+		return fmt.Errorf("Unable to open game file: %v", err)
+	}
+
+	var game Game
+	err = yaml.Unmarshal(data, &game)
+	if err != nil {
+		return fmt.Errorf("Error loading game file: %v", err)
+	}
 
 	logger.Info(
 		"Starting Lockdown Scavenger Bot",
-		zap.String("startTime", start.Format(time.RFC3339)),
-		zap.String("duration", duration.String()),
+		zap.String("gameFile", gameFile),
+		zap.String("gallery", imageFolder),
 		zap.Bool("verbose", verbose),
 		zap.String("connStr", connStr),
 		zap.String("admins", strings.Join(admins, ",")),
@@ -65,10 +92,14 @@ func Run(logger *zap.Logger, token string, start time.Time, duration time.Durati
 			if update.Message.Chat.IsPrivate() || update.Message.IsCommand() {
 				if user == nil {
 					user = &store.User{
-						ID:        int64(update.Message.From.ID),
-						UserName:  null.StringFrom(update.Message.From.UserName),
+						ID: int64(update.Message.From.ID),
+						// UserName:  null.StringFrom(update.Message.From.UserName),
 						FirstName: update.Message.From.FirstName,
 						Admin:     contains(admins, update.Message.From.UserName),
+					}
+
+					if update.Message.From.UserName != "" {
+						user.UserName = null.StringFrom(update.Message.From.UserName)
 					}
 
 					err = store.SaveUser(tx, user)
@@ -145,6 +176,35 @@ func Run(logger *zap.Logger, token string, start time.Time, duration time.Durati
 
 						msg.Text = fmt.Sprintf("You have now joined the team: %s", team.Name)
 
+					case "leaveteam":
+						if update.Message.CommandArguments() == "" {
+							msg.Text = "You must tell me a non-empty team name"
+							return nil
+						}
+
+						team, err := store.GetTeamByName(tx, update.Message.CommandArguments())
+						if err != nil {
+							if err == store.ErrNotFound {
+								msg.Text = fmt.Sprintf("I'm sorry, I can't find a team with the name '%s', please check and tell me again", update.Message.CommandArguments())
+								return nil
+							}
+							return err
+						}
+
+						if user.TeamID.Int64 != team.ID {
+							msg.Text = fmt.Sprintf("You are not currently in the team '%s' so you cannot leave them!", update.Message.CommandArguments())
+							return nil
+						}
+
+						user.TeamID = null.Int{}
+
+						err = store.SaveUser(tx, user)
+						if err != nil {
+							return err
+						}
+
+						msg.Text = fmt.Sprintf("You have now left the team: %s", team.Name)
+
 					case "me":
 						var buf strings.Builder
 						buf.WriteString("Your name is: ")
@@ -164,12 +224,76 @@ func Run(logger *zap.Logger, token string, start time.Time, duration time.Durati
 						}
 
 						msg.Text = buf.String()
+
+					case "game":
+						now := time.Now()
+
+						if game.Start.After(now) {
+							msg.Text = fmt.Sprintf("The game '%s' has not yet started, and is due to begin %s", game.Title, humanize.Time(game.Start))
+							return nil
+						}
+
+						if now.After(game.Start) && game.Start.Add(game.Duration).After(now) {
+							msg.Text = fmt.Sprintf("The game '%s' is currently underway and is due to finish %s", game.Title, humanize.Time(game.Start.Add(game.Duration)))
+							return nil
+						}
+
+						msg.Text = fmt.Sprintf("The game '%s' has already finished", game.Title)
+
+					case "items":
+						now := time.Now()
+
+						if now.After(game.Start) && game.Start.Add(game.Duration).After(now) {
+							var buf strings.Builder
+							buf.WriteString("The game is afoot! The items you are looking for are:\n\n")
+							for _, item := range game.Items {
+								buf.WriteString(" - ")
+								buf.WriteString(item)
+								buf.WriteString("\n")
+							}
+
+							if len(game.Bonuses) > 0 {
+								buf.WriteString("\n\nThere are also the following bonus items to be found:\n\n")
+
+								for _, bonus := range game.Bonuses {
+									buf.WriteString(" - ")
+									buf.WriteString(bonus)
+									buf.WriteString("\n")
+								}
+							}
+
+							msg.Text = buf.String()
+							return nil
+						}
+
+						msg.Text = "The game has not yet started so I can't tell you the items we are looking for yet!"
+
 					case "help":
-						msg.Text = "Helpful message"
+						msg.Text = `Hello, I know the following commands:
+
+  - /listteams - list the current teams
+  - /createteam - used to create a new team
+  - /jointeam - used to join an existing team
+  - /leaveteam - used to leave your current team
+  - /me - show your current status
+  - /rules - list the rules of the game
+  - /items - list the items we are currently looking for
+  - /game - show the current game status
+`
 
 					default:
 						msg.Text = "I'm afraid I don't know that command, please type /help to see a list of available commands"
 					}
+				}
+
+				if update.Message.Photo != nil && len(*update.Message.Photo) > 0 {
+					if !user.TeamID.Valid {
+						msg.Text = "You are not in a team, so I can't save photos for you"
+						return nil
+					}
+
+					photos := *update.Message.Photo
+					go savePhoto(bot, user, photos[len(photos)-1], game.Title, imageFolder)
 				}
 			}
 
@@ -180,12 +304,12 @@ func Run(logger *zap.Logger, token string, start time.Time, duration time.Durati
 			logger.Error("Unexpected error", zap.Error(err))
 			msg.Text = fmt.Sprintf("I'm sorry I encountered an unexpected error. Please tell Sam about this: %v", err.Error())
 			tx.Rollback()
+			continue
 		}
 
 		tx.Commit()
 
 		bot.Send(msg)
-
 	}
 
 	return nil
@@ -198,4 +322,41 @@ func contains(haystack []string, needle string) bool {
 		}
 	}
 	return false
+}
+
+func savePhoto(bot *tgbotapi.BotAPI, user *store.User, photo tgbotapi.PhotoSize, gameTitle, galleryFolder string) {
+	photoURL, err := bot.GetFileDirectURL(photo.FileID)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	teamPath := filepath.Join(galleryFolder, strings.ReplaceAll(gameTitle, " ", "-"), strconv.FormatInt(user.TeamID.Int64, 10))
+
+	err = os.MkdirAll(teamPath, 0700)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	resp, err := http.Get(photoURL)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer resp.Body.Close()
+
+	filename := filepath.Join(teamPath, fmt.Sprintf("%s.jpg", photo.FileID))
+	f, err := os.Create(filename)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer f.Close()
+
+	_, err = io.Copy(f, resp.Body)
+	if err != nil {
+		fmt.Println(err)
+	}
+	return
 }
