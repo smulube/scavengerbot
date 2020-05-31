@@ -2,4 +2,5 @@ scavenge.db
 .env
 gallery
 game.yaml
+credentials.json
 

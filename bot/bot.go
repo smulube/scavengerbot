@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/storage"
 	"github.com/dustin/go-humanize"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/smulube/scavenge/store"
@@ -19,6 +21,43 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+//var (
+//nonTeamKeyboard = tgbotapi.NewInlineKeyboardMarkup(
+//tgbotapi.NewInlineKeyboardRow(
+//tgbotapi.NewInlineKeyboardButtonData("Join Team", "/listteams"),
+//),
+//)
+//)
+
+func init() {
+	ctx := context.Background()
+	f, err := os.Open("foo.txt")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, time.Second*50)
+	defer cancel()
+	wc := client.Bucket("scavenger.mulube.com").Object("foo.txt").NewWriter(ctx)
+	if _, err = io.Copy(wc, f); err != nil {
+		panic(err)
+	}
+	if err := wc.Close(); err != nil {
+		panic(err)
+	}
+
+	//bucketName := "scavenger.mulube.com"
+	//bucket := client.Bucket(bucketName)
+
+}
+
+// Game type loaded from YAML
 type Game struct {
 	Title    string        `yaml:"title"`
 	Start    time.Time     `yaml:"start"`
