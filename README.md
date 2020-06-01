@@ -1,63 +1,73 @@
-# lockdownscavengerbot
+# scavengerbot
 
 This is a Telegram bot to support my little lockdown scavenger hunt game for
 friends and family.
 
+## Building
+
+To build the project you will need to:
+
+* install Go (latest build is best)
+* add the Go bin folder into your $PATH - mine is like `$HOME/go/bin`
+* run `go install` which should build the binary, and copy it into `$HOME/go/bin`
+
 ## CLI API
 
 ```bash
-$ scavenge --start "2020-05-17T14:00:00" --duration 1h --database scavenge.db
+Usage: scavengerbot --game-file="./game.yaml" --image-folder="./gallery" --telegram-token=STRING --database=STRING
+
+Telegram bot providing the back end for our lockdown scavenger hunt
+
+Flags:
+  --help                        Show context-sensitive help.
+  --verbose                     Enable verbose mode
+  --game-file="./game.yaml"     Path to the game config file
+  --image-folder="./gallery"    Path to folder within which images are saved
+  --telegram-token=STRING       Telegram token for the bot ($TELEGRAM_TOKEN)
+  --database=STRING             Connection string for Postgres ($POSTGRES_CONN)
 ```
+
+Note that the values of TELEGRAM_TOKEN and POSTGRES_CONN can be passed via
+environment variables of those names - this can be seen in the included
+`.env.local.example` file.
 
 ## Chat API
 
-```
-Bot: Hello, I am the Lockdown Scavenger Hunt bot. Type "help" to find out how to play.
+The Chat API is currently very clunky - users have to type a command like
+`/jointeam My Team Name` where precise case sensitivity is required.
 
-Human: help
-
-Bot: The Lockdown Scavenger Hunt is a timed event where you will be given a
-list of items to find and photograph within an hour. All members of your team
-can send me photographs and I'll build them into an album for judging once
-the hour is over. The Lockdown Scavenger Hunt is just for fun, and any
-rumours of prizes are just that, rumours...
-
-     I understand the following commands:
-     - /createteam: create a new team (you'll need to tell me a team name)
-     - /jointeam: join an existing team (you'll need to tell me that same team name)
-     - /leaveteam: leave your current team (everyone makes mistakes)
-     - /listitems: I'll show you the list of items to be find (but only when the game has started)
-     - /time: I'll tell you how long is left in the game to submit photos
-
-    Once the game has started you'll be able to send my photos here and I'll
-    add them to your team's gallery
-
-Human: create
-
-Bot: What is your team name?
-
-Human: Limekilns losers
-
-Bot: Limekilns losers it is
-
-Human: list
-
-Bot: I'm afraid the game hasn't started yet, so I can't tell you the list yet
-
-Human2: join
-
-Bot: What team would you like to join?
-
-Human2: Limekilns winners
-
-Bot: I'm afraid I can't find a team with that name, please check and tell me again
-
-Human2: Limekilns losers
-
-Bot: Congratulations you are now part of the Limekilns losers, good luck!
+The current list of commands understood by the bot are:
 
 ```
+Hello, I know the following commands:
 
+  - /listteams - list the current teams
+  - /createteam - used to create a new team
+  - /jointeam - used to join an existing team
+  - /leaveteam - used to leave your current team
+  - /me - show your current status
+  - /rules - list the rules of the game
+  - /items - list the items we are currently looking for
+  - /game - show the current game status
 ```
 
-```
+## Future work
+
+* Use Telegram buttons in order to simplify the above UI. These are buttons
+  that the Telegram app shows to the user, so they might type `/jointeam`, the
+  Telegram app would return a message that renders a button for each team. The
+  user could then just click on the name of a team to join it.
+
+* Add a `/start` message which will give a nicer experience when you go into
+  private chat with the bot
+
+* Fix the humanized time - gives bad output when say game starts in 90 minutes
+  - in this case it returns the message: "game will start in one hour" instead
+  of maybe - "game will start in over an hour", or better "game will start in
+  90 minutes"
+
+* Write some tests for the above functionality
+
+* See whether the bot can proactively send messages out to the group chat, i.e.
+  The game is about to start, or "The game has 5 minutes to go", or even "The
+  game has finished!" - currently it just responds to incoming messages
