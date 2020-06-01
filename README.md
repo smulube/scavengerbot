@@ -90,3 +90,7 @@ Hello, I know the following commands:
 - See whether the bot can proactively send messages out to the group chat, i.e.
   The game is about to start, or "The game has 5 minutes to go", or even "The
   game has finished!" - currently it just responds to incoming messages
+
+- Find a service with an easily usable gallery API that will upload all of a
+  teams photos into a shared gallery such that we can easily then review and
+  score the items.
