@@ -3,4 +3,5 @@ scavenge.db
 gallery
 game.yaml
 credentials.json
+.DS_Store
 
