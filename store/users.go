@@ -17,7 +17,7 @@ type User struct {
 	TeamID    null.Int    `json:"teamId" db:"team_id"`
 }
 
-// GetUser returns the user identified by the given integer
+// GetUser returns the user identified by the given integer id
 func GetUser(tx *sqlx.Tx, id int) (*User, error) {
 	var user User
 

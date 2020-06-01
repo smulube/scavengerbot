@@ -48,7 +48,8 @@ func CreateTeam(tx *sqlx.Tx, team *Team) error {
 	return nil
 }
 
-func GetTeamById(tx *sqlx.Tx, id int) (*Team, error) {
+// GetTeamByID returns a team given its numerical ID
+func GetTeamByID(tx *sqlx.Tx, id int) (*Team, error) {
 	query := `SELECT * FROM teams WHERE id=$1`
 
 	var t Team
@@ -64,6 +65,7 @@ func GetTeamById(tx *sqlx.Tx, id int) (*Team, error) {
 	return &t, nil
 }
 
+// GetTeamByName returns a team given its name
 func GetTeamByName(tx *sqlx.Tx, name string) (*Team, error) {
 	query := `SELECT * FROM teams WHERE name=$1`
 

@@ -14,12 +14,13 @@ import (
 
 	"github.com/dustin/go-humanize"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/smulube/scavenge/store"
+	"github.com/smulube/scavengerbot/store"
 	"go.uber.org/zap"
 	"gopkg.in/guregu/null.v4"
 	"gopkg.in/yaml.v2"
 )
 
+// Game is a struct that we use to parse the data from the given YAML game file
 type Game struct {
 	Title    string        `yaml:"title"`
 	Start    time.Time     `yaml:"start"`
@@ -29,7 +30,7 @@ type Game struct {
 }
 
 // Run starts our bot running with the appropriate configuration
-func Run(logger *zap.Logger, token string, gameFile, imageFolder string, verbose bool, connStr string, admins []string) error {
+func Run(logger *zap.Logger, token string, gameFile, imageFolder string, verbose bool, connStr string) error {
 
 	data, err := ioutil.ReadFile(gameFile)
 	if err != nil {
@@ -53,7 +54,6 @@ func Run(logger *zap.Logger, token string, gameFile, imageFolder string, verbose
 		zap.String("startTime", game.Start.Format(time.RFC3339)),
 		zap.Duration("duration", game.Duration),
 		zap.Bool("verbose", verbose),
-		zap.String("admins", strings.Join(admins, ",")),
 	)
 
 	db, err := store.New(connStr, logger)
@@ -98,10 +98,8 @@ func Run(logger *zap.Logger, token string, gameFile, imageFolder string, verbose
 			if update.Message.Chat.IsPrivate() || update.Message.IsCommand() {
 				if user == nil {
 					user = &store.User{
-						ID: int64(update.Message.From.ID),
-						// UserName:  null.StringFrom(update.Message.From.UserName),
+						ID:        int64(update.Message.From.ID),
 						FirstName: update.Message.From.FirstName,
-						Admin:     contains(admins, update.Message.From.UserName),
 					}
 
 					if update.Message.From.UserName != "" {
@@ -218,7 +216,7 @@ func Run(logger *zap.Logger, token string, gameFile, imageFolder string, verbose
 						buf.WriteString("\n")
 
 						if user.TeamID.Valid {
-							team, err := store.GetTeamById(tx, int(user.TeamID.Int64))
+							team, err := store.GetTeamByID(tx, int(user.TeamID.Int64))
 							if err != nil {
 								return err
 							}
@@ -299,7 +297,8 @@ func Run(logger *zap.Logger, token string, gameFile, imageFolder string, verbose
 					}
 
 					photos := *update.Message.Photo
-					go savePhoto(bot, user, photos[len(photos)-1], game.Title, imageFolder)
+					// fire savePhoto in separate goroutine
+					go savePhoto(bot, user, photos[len(photos)-1], game.Title, imageFolder, logger)
 				}
 			}
 
@@ -323,6 +322,7 @@ func Run(logger *zap.Logger, token string, gameFile, imageFolder string, verbose
 	return nil
 }
 
+// contains searches a given slice of strings, for a target.
 func contains(haystack []string, needle string) bool {
 	for _, elem := range haystack {
 		if elem == needle {
@@ -332,10 +332,15 @@ func contains(haystack []string, needle string) bool {
 	return false
 }
 
-func savePhoto(bot *tgbotapi.BotAPI, user *store.User, photo tgbotapi.PhotoSize, gameTitle, galleryFolder string) {
+// savePhoto attempts to download and save the received photo. Note this
+// function returns no error because we fire it off in a separate goroutine from
+// the main execution thread, and I am lazy about hooking up some sort of
+// channel to return that error to the top level. Here we just make a best
+// effort attempt to save the photo.
+func savePhoto(bot *tgbotapi.BotAPI, user *store.User, photo tgbotapi.PhotoSize, gameTitle, galleryFolder string, logger *zap.Logger) {
 	photoURL, err := bot.GetFileDirectURL(photo.FileID)
 	if err != nil {
-		fmt.Println(err)
+		logger.Error("Failed to get direct URL to photo", zap.Error(err))
 		return
 	}
 
@@ -343,13 +348,13 @@ func savePhoto(bot *tgbotapi.BotAPI, user *store.User, photo tgbotapi.PhotoSize,
 
 	err = os.MkdirAll(teamPath, 0700)
 	if err != nil {
-		fmt.Println(err)
+		logger.Error("Failed to make gallery directory", zap.Error(err))
 		return
 	}
 
 	resp, err := http.Get(photoURL)
 	if err != nil {
-		fmt.Println(err)
+		logger.Error("Failed to download photo", zap.Error(err))
 		return
 	}
 	defer resp.Body.Close()
@@ -357,14 +362,14 @@ func savePhoto(bot *tgbotapi.BotAPI, user *store.User, photo tgbotapi.PhotoSize,
 	filename := filepath.Join(teamPath, fmt.Sprintf("%s.jpg", photo.FileID))
 	f, err := os.Create(filename)
 	if err != nil {
-		fmt.Println(err)
+		logger.Error("Failed to create local file", zap.Error(err))
 		return
 	}
 	defer f.Close()
 
 	_, err = io.Copy(f, resp.Body)
 	if err != nil {
-		fmt.Println(err)
+		logger.Error("Failed to copy image into local file", zap.Error(err))
 	}
 	return
 }

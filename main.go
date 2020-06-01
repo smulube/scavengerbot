@@ -4,7 +4,7 @@ import (
 	"log"
 
 	"github.com/alecthomas/kong"
-	"github.com/smulube/scavenge/bot"
+	"github.com/smulube/scavengerbot/bot"
 	"go.uber.org/zap"
 )
 
@@ -14,7 +14,6 @@ var cli struct {
 	ImageFolder   string   `kong:"help='Path to folder within which images are saved',required,default=./gallery"`
 	TelegramToken string   `kong:"help='Telegram token for the bot',required,env='TELEGRAM_TOKEN'"`
 	Database      string   `kong:"help='Connection string for Postgres',required,env='POSTGRES_CONN'"`
-	Admins        []string `kong:"help='Comma separated list of admin users'"`
 }
 
 func main() {
@@ -26,11 +25,11 @@ func main() {
 
 	ctx := kong.Parse(
 		&cli,
-		kong.Name("scavenge"),
+		kong.Name("scavengerbot"),
 		kong.Description("Telegram bot providing the back end for our lockdown scavenger hunt"),
 	)
 
-	err = bot.Run(logger, cli.TelegramToken, cli.GameFile, cli.ImageFolder, cli.Verbose, cli.Database, cli.Admins)
+	err = bot.Run(logger, cli.TelegramToken, cli.GameFile, cli.ImageFolder, cli.Verbose, cli.Database)
 	if err != nil {
 		ctx.FatalIfErrorf(err)
 	}
