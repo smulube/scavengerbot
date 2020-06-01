@@ -1,4 +1,4 @@
-module github.com/smulube/scavenge
+module github.com/smulube/scavengerbot
 
 go 1.14
 
@@ -11,8 +11,8 @@ require (
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/technoweenie/multipartstreamer v1.0.1 // indirect
-	go.etcd.io/bbolt v1.3.4
 	go.uber.org/zap v1.15.0
+	google.golang.org/appengine v1.6.6 // indirect
 	gopkg.in/guregu/null.v4 v4.0.0
 	gopkg.in/yaml.v2 v2.2.2
 )
