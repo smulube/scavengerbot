@@ -1,5 +1,5 @@
 scavenge.db
-.env
+.env.local
 gallery
 game.yaml
 credentials.json
