@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -41,12 +42,17 @@ func Run(logger *zap.Logger, token string, gameFile, imageFolder string, verbose
 		return fmt.Errorf("Error loading game file: %v", err)
 	}
 
+	// sort our items alphabetically
+	sort.Strings(game.Items)
+	sort.Strings(game.Bonuses)
+
 	logger.Info(
 		"Starting Lockdown Scavenger Bot",
 		zap.String("gameFile", gameFile),
 		zap.String("gallery", imageFolder),
+		zap.String("startTime", game.Start.Format(time.RFC3339)),
+		zap.Duration("duration", game.Duration),
 		zap.Bool("verbose", verbose),
-		zap.String("connStr", connStr),
 		zap.String("admins", strings.Join(admins, ",")),
 	)
 
@@ -309,7 +315,9 @@ func Run(logger *zap.Logger, token string, gameFile, imageFolder string, verbose
 
 		tx.Commit()
 
-		bot.Send(msg)
+		if msg.Text != "" {
+			bot.Send(msg)
+		}
 	}
 
 	return nil
