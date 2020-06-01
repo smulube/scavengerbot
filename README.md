@@ -7,9 +7,27 @@ friends and family.
 
 To build the project you will need to:
 
-* install Go (latest build is best)
-* add the Go bin folder into your $PATH - mine is like `$HOME/go/bin`
-* run `go install` which should build the binary, and copy it into `$HOME/go/bin`
+- install Go (latest build is best)
+- add the Go bin folder into your \$PATH - mine is like `$HOME/go/bin`
+- run `go install` which should build the binary, and copy it into `$HOME/go/bin`
+
+## Running
+
+Included in this repo is a simple docker-compose file to run a Postgre
+instance inside Docker. I included this so I didn't have to try and install a
+local Postgres instance just for this. If you already have Postgres installed
+locally, you can create a new DB, and pass in the connection string as shown
+in the API below.
+
+To run using Docker, make sure you have a recent version of docker + compose
+installed, then start the DB with:
+
+```bash
+$ docker-compose up
+```
+
+Once you see Postgres has started you should then be able to start and
+connect to using the connection string shown in `.env.local.example`
 
 ## CLI API
 
@@ -53,21 +71,22 @@ Hello, I know the following commands:
 
 ## Future work
 
-* Use Telegram buttons in order to simplify the above UI. These are buttons
+- Use Telegram buttons in order to simplify the above UI. These are buttons
   that the Telegram app shows to the user, so they might type `/jointeam`, the
   Telegram app would return a message that renders a button for each team. The
   user could then just click on the name of a team to join it.
 
-* Add a `/start` message which will give a nicer experience when you go into
+- Add a `/start` message which will give a nicer experience when you go into
   private chat with the bot
 
-* Fix the humanized time - gives bad output when say game starts in 90 minutes
+- Fix the humanized time - gives bad output when say game starts in 90 minutes
+
   - in this case it returns the message: "game will start in one hour" instead
-  of maybe - "game will start in over an hour", or better "game will start in
-  90 minutes"
+    of maybe - "game will start in over an hour", or better "game will start in
+    90 minutes"
 
-* Write some tests for the above functionality
+- Write some tests for the above functionality
 
-* See whether the bot can proactively send messages out to the group chat, i.e.
+- See whether the bot can proactively send messages out to the group chat, i.e.
   The game is about to start, or "The game has 5 minutes to go", or even "The
   game has finished!" - currently it just responds to incoming messages
